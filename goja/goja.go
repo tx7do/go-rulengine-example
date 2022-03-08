@@ -35,7 +35,7 @@ func (r *RuleEngine) Stop() error {
 }
 
 // AddNode 添加一个规则节点
-func (r *RuleEngine) AddNode(nodeName, rules string, apis rulengine.ExportMap) error {
+func (r *RuleEngine) AddNode(nodeName, rules string, apis rulengine.PropertiesMap) error {
 	_, ok := r.nodes[nodeName]
 	if ok {
 		return errors.New("rule node already exists")

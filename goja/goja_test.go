@@ -73,7 +73,7 @@ if ((RuleConditionContext.Distance > 5000 && RuleConditionContext.Duration > 120
 
 	nodeName := "rule1"
 
-	apis := make(rulengine.ExportMap)
+	apis := make(rulengine.PropertiesMap)
 	apis["RuleConditionContext"] = ruleCondition
 
 	err = eng.AddNode(nodeName, SCRIPT, apis)
@@ -112,7 +112,7 @@ while (Pogo.GetNameLength() < 100) {
 
 	pogo := &MyPoGo{Name: "bobo"}
 
-	apis := make(rulengine.ExportMap)
+	apis := make(rulengine.PropertiesMap)
 	apis["Pogo"] = pogo
 
 	err = eng.AddNode(nodeName, drl, apis)

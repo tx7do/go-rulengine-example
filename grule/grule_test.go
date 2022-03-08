@@ -47,7 +47,7 @@ rule CheckValues "Check the default values" salience 10 {
 
 	nodeName := "rule1"
 
-	apis := make(rulengine.ExportMap)
+	apis := make(rulengine.PropertiesMap)
 	apis["MF"] = myFact
 
 	err = eng.AddNode(nodeName, drl, apis)
@@ -89,7 +89,7 @@ rule  DuplicateRule1 "Duplicate Rule 1" salience 5 {
 
 	nodeName := "rule1"
 
-	apis := make(rulengine.ExportMap)
+	apis := make(rulengine.PropertiesMap)
 	apis["RuleConditionContext"] = ruleCondition
 
 	err = eng.AddNode(nodeName, drl, apis)
@@ -130,7 +130,7 @@ rule AgeNameCheck "test" {
 
 	pogo := &MyPoGo{Name: "bobo"}
 
-	apis := make(rulengine.ExportMap)
+	apis := make(rulengine.PropertiesMap)
 	apis["Pogo"] = pogo
 
 	err = eng.AddNode(nodeName, drl, apis)

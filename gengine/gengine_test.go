@@ -31,19 +31,19 @@ begin
   aName = @name
   aId = @id
   aDesc = @desc
-  PrintName("@id: ", aId)
-  PrintName("@name: ", aName)
-  PrintName("@desc: ", aDesc)
+  Println("@id: ", aId)
+  Println("@name: ", aName)
+  Println("@desc: ", aDesc)
 end
 
-rule "rule name" "rule desc"
+rule "测试规则名称2" "rule desc"
 begin
   aName = @name
   aId = @id
   aDesc = @desc
-  PrintName("@id: ", aId)
-  PrintName("@name: ", aName)
-  PrintName("@desc: ", aDesc)
+  Println("@id: ", aId)
+  Println("@name: ", aName)
+  Println("@desc: ", aDesc)
 end
 `
 
@@ -51,7 +51,7 @@ end
 
 	// 创建上下文
 	dataContext := context.NewDataContext()
-	dataContext.Add("PrintName", fmt.Println)
+	dataContext.Add("Println", fmt.Println)
 	// 初始化规则构造器
 	ruleBuilder := builder.NewRuleBuilder(dataContext)
 	// 从字符串中解析规则
@@ -102,15 +102,13 @@ begin
 end
 `
 
-	type Calculate struct {
-		Data int
-		Name string
-	}
-	calculate := &Calculate{Data: 0}
+	calculate := &model.Calculate{Data: 0}
 
-	properties := make(rulengine.ExportMap)
+	properties := make(rulengine.PropertiesMap)
 	properties["cal"] = calculate
-	properties["println"] = fmt.Println
+
+	functions := make(rulengine.FunctionsMap)
+	functions["println"] = fmt.Println
 
 	nodeName := "SortModel"
 
@@ -118,15 +116,15 @@ end
 	err := eng.Start()
 	assert.Nil(t, err)
 
-	err = eng.AddNode(nodeName, dsl, properties)
+	err = eng.AddNode(nodeName, dsl, functions, properties, rulengine.SortModel, false)
 	assert.Nil(t, err)
 
-	err = eng.Execute(nodeName, rulengine.SortModel)
+	err = eng.Execute(nodeName)
 	assert.Nil(t, err)
 }
 
 func TestMixModel(t *testing.T) {
-	// 找出优先级最高的先执行,其他的并发.
+	// 找出优先级最高的优先第一个执行,其他的并发.
 	const dsl = `
 rule "rule_1" "highest priority 第一个"  salience 1000
 begin
@@ -148,15 +146,13 @@ begin
 end
 `
 
-	type Calculate struct {
-		Data int
-		Name string
-	}
-	calculate := &Calculate{Data: 0}
+	calculate := &model.Calculate{Data: 0}
 
-	properties := make(rulengine.ExportMap)
+	properties := make(rulengine.PropertiesMap)
 	properties["cal"] = calculate
-	properties["println"] = fmt.Println
+
+	functions := make(rulengine.FunctionsMap)
+	functions["println"] = fmt.Println
 
 	nodeName := "MixModel"
 
@@ -164,45 +160,43 @@ end
 	err := eng.Start()
 	assert.Nil(t, err)
 
-	err = eng.AddNode(nodeName, dsl, properties)
+	err = eng.AddNode(nodeName, dsl, functions, properties, rulengine.MixModel, false)
 	assert.Nil(t, err)
 
-	err = eng.Execute(nodeName, rulengine.MixModel)
+	err = eng.Execute(nodeName)
 	assert.Nil(t, err)
 }
 
 func TestInverseMixModel(t *testing.T) {
-	// 先并发执行优先级不是最高的的其他规则,最后才执行优先级最高的那个.
+	// 先并发执行优先级最低以外的其他规则,最后才执行优先级最低的那一个.
 	const dsl = `
 rule "lowest_priority" "lowest priority 并发" salience 996
 begin
-	println("lowest_priority-->")
+	println("996-->")
 	println("cal.Data-->", cal.Data)
 	println("cal.Name-->", cal.Name) 
 end
 
 rule "lower_priority" "lower priority 并发" salience 998
 begin
-	println("lower_priority-->")
+	println("998-->")
 	cal.Name = "hello world"
 end
 
 rule "most_priority" "most priority 最后一个" salience 1000
 begin
-	println("most_priority-->")
+	println("1000-->")
 	cal.Data = 5
 end
 `
 
-	type Calculate struct {
-		Data int
-		Name string
-	}
-	calculate := &Calculate{Data: 0}
+	calculate := &model.Calculate{Data: 0}
 
-	properties := make(rulengine.ExportMap)
+	properties := make(rulengine.PropertiesMap)
 	properties["cal"] = calculate
-	properties["println"] = fmt.Println
+
+	functions := make(rulengine.FunctionsMap)
+	functions["println"] = fmt.Println
 
 	nodeName := "InverseMixModel"
 
@@ -210,10 +204,10 @@ end
 	err := eng.Start()
 	assert.Nil(t, err)
 
-	err = eng.AddNode(nodeName, dsl, properties)
+	err = eng.AddNode(nodeName, dsl, functions, properties, rulengine.InverseMixModel, false)
 	assert.Nil(t, err)
 
-	err = eng.Execute(nodeName, rulengine.InverseMixModel)
+	err = eng.Execute(nodeName)
 	assert.Nil(t, err)
 }
 
@@ -300,11 +294,13 @@ end
 		Event: "",
 	}
 
-	properties := make(rulengine.ExportMap)
+	properties := make(rulengine.PropertiesMap)
 	properties["Temperature"] = temperature
 	properties["Water"] = water
 	properties["Smoke"] = smoke
-	properties["println"] = fmt.Println
+
+	functions := make(rulengine.FunctionsMap)
+	functions["println"] = fmt.Println
 
 	nodeName := "Station"
 
@@ -312,10 +308,10 @@ end
 	err := eng.Start()
 	assert.Nil(t, err)
 
-	err = eng.AddNode(nodeName, dsl, properties)
+	err = eng.AddNode(nodeName, dsl, functions, properties, rulengine.ConcurrentModel, false)
 	assert.Nil(t, err)
 
-	err = eng.Execute(nodeName, rulengine.ConcurrentModel)
+	err = eng.Execute(nodeName)
 	assert.Nil(t, err)
 
 	fmt.Printf("temperature Event=%s\n", temperature.Event)
@@ -323,7 +319,7 @@ end
 	fmt.Printf("smoke Event=%s\n", smoke.Event)
 	for i := 0; i < 10; i++ {
 		smoke.Value = float64(i % 3)
-		err = eng.Execute(nodeName, rulengine.ConcurrentModel)
+		err = eng.Execute(nodeName)
 		assert.Nil(t, err)
 		fmt.Printf("smoke Event=%s\n", smoke.Event)
 	}
@@ -365,10 +361,12 @@ end
 		Score: 100,
 	}
 
-	properties := make(rulengine.ExportMap)
-	properties["FormatInt"] = strconv.FormatInt
-	properties["println"] = fmt.Println
+	properties := make(rulengine.PropertiesMap)
 	properties["Student"] = student
+
+	functions := make(rulengine.FunctionsMap)
+	functions["println"] = fmt.Println
+	functions["FormatInt"] = strconv.FormatInt
 
 	nodeName := "Student"
 
@@ -376,13 +374,13 @@ end
 	err := eng.Start()
 	assert.Nil(t, err)
 
-	err = eng.AddNode(nodeName, ruleInit, properties)
+	err = eng.AddNode(nodeName, ruleInit, functions, properties, rulengine.SortModel, false)
 	assert.Nil(t, err)
 
 	go func() {
 		for {
 			student.Score = rand.Int63n(50) + 50
-			err2 := eng.Execute(nodeName, rulengine.SortModel)
+			err2 := eng.Execute(nodeName)
 			assert.Nil(t, err2)
 			time.Sleep(1 * time.Second)
 		}
@@ -391,12 +389,12 @@ end
 	go func() {
 		time.Sleep(3 * time.Second)
 
-		err2 := eng.ModifyRule(nodeName, ruleUpdate)
+		err2 := eng.UpdateRule(nodeName, ruleUpdate)
 		assert.Nil(t, err2)
 
 		time.Sleep(3 * time.Second)
 
-		err3 := eng.ModifyRule(nodeName, ruleAdd)
+		err3 := eng.UpdateRule(nodeName, ruleAdd)
 		assert.Nil(t, err3)
 	}()
 
