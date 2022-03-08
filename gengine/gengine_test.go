@@ -7,10 +7,10 @@ import (
 	"github.com/bilibili/gengine/engine"
 	"github.com/google/martian/log"
 	"github.com/stretchr/testify/assert"
+	rulengine "go-rulengine-example"
+	"go-rulengine-example/model"
 	"math/rand"
 	"strconv"
-	rule_engine "go-rulengine-example"
-	"go-rulengine-example/model"
 	"testing"
 	"time"
 )
@@ -25,7 +25,7 @@ func TestGEngine(t *testing.T) {
 	'@name',获取规则名
 	'@desc',获取规则说明
 	*/
-	const grl = `
+	const dsl = `
 rule "测试规则名称1" "rule desc"
 begin
   aName = @name
@@ -55,7 +55,7 @@ end
 	// 初始化规则构造器
 	ruleBuilder := builder.NewRuleBuilder(dataContext)
 	// 从字符串中解析规则
-	err := ruleBuilder.BuildRuleFromString(grl)
+	err := ruleBuilder.BuildRuleFromString(dsl)
 
 	end1 := time.Now().UnixNano()
 
@@ -77,8 +77,148 @@ end
 	}
 }
 
-func TestConcurrent(t *testing.T) {
-	grl := `
+func TestSortModel(t *testing.T) {
+	// 按排序的顺序执行
+	// 没有定义salience,按照规则定义的先后顺序执行.
+	// salience	定义规则优先级的整数，数值越大，优先级越高
+	const dsl = `
+rule "rule_1" "highest priority"
+begin
+	println("rule_1-->")
+	println("cal.Data-->", cal.Data)
+	println("cal.Name-->", cal.Name) 
+end
+
+rule "rule_2" "mid priority"
+begin
+	println("rule_2-->")
+	cal.Name = "hello world"
+end
+
+rule "rule_3" "lowest priority"
+begin
+	println("rule_3-->")
+	cal.Data = 5
+end
+`
+
+	type Calculate struct {
+		Data int
+		Name string
+	}
+	calculate := &Calculate{Data: 0}
+
+	properties := make(rulengine.ExportMap)
+	properties["cal"] = calculate
+	properties["println"] = fmt.Println
+
+	nodeName := "SortModel"
+
+	eng := NewRuleEngine()
+	err := eng.Start()
+	assert.Nil(t, err)
+
+	err = eng.AddNode(nodeName, dsl, properties)
+	assert.Nil(t, err)
+
+	err = eng.Execute(nodeName, rulengine.SortModel)
+	assert.Nil(t, err)
+}
+
+func TestMixModel(t *testing.T) {
+	// 找出优先级最高的先执行,其他的并发.
+	const dsl = `
+rule "rule_1" "highest priority 第一个"  salience 1000
+begin
+	println("rule_1-->")
+	println("cal.Data-->", cal.Data)
+	println("cal.Name-->", cal.Name) 
+end
+
+rule "rule_2" "mid priority 并发" salience 5
+begin
+	println("rule_2-->")
+	cal.Name = "hello world"
+end
+
+rule "rule_3" "most priority 并发" salience 2
+begin
+	println("rule_3-->")
+	cal.Data = 5
+end
+`
+
+	type Calculate struct {
+		Data int
+		Name string
+	}
+	calculate := &Calculate{Data: 0}
+
+	properties := make(rulengine.ExportMap)
+	properties["cal"] = calculate
+	properties["println"] = fmt.Println
+
+	nodeName := "MixModel"
+
+	eng := NewRuleEngine()
+	err := eng.Start()
+	assert.Nil(t, err)
+
+	err = eng.AddNode(nodeName, dsl, properties)
+	assert.Nil(t, err)
+
+	err = eng.Execute(nodeName, rulengine.MixModel)
+	assert.Nil(t, err)
+}
+
+func TestInverseMixModel(t *testing.T) {
+	// 先并发执行优先级不是最高的的其他规则,最后才执行优先级最高的那个.
+	const dsl = `
+rule "lowest_priority" "lowest priority 并发" salience 996
+begin
+	println("lowest_priority-->")
+	println("cal.Data-->", cal.Data)
+	println("cal.Name-->", cal.Name) 
+end
+
+rule "lower_priority" "lower priority 并发" salience 998
+begin
+	println("lower_priority-->")
+	cal.Name = "hello world"
+end
+
+rule "most_priority" "most priority 最后一个" salience 1000
+begin
+	println("most_priority-->")
+	cal.Data = 5
+end
+`
+
+	type Calculate struct {
+		Data int
+		Name string
+	}
+	calculate := &Calculate{Data: 0}
+
+	properties := make(rulengine.ExportMap)
+	properties["cal"] = calculate
+	properties["println"] = fmt.Println
+
+	nodeName := "InverseMixModel"
+
+	eng := NewRuleEngine()
+	err := eng.Start()
+	assert.Nil(t, err)
+
+	err = eng.AddNode(nodeName, dsl, properties)
+	assert.Nil(t, err)
+
+	err = eng.Execute(nodeName, rulengine.InverseMixModel)
+	assert.Nil(t, err)
+}
+
+func TestConcurrentModel(t *testing.T) {
+	dsl := `
 rule "TemperatureRule" "温度事件计算规则"
 begin
    println("/***************** 温度事件计算规则 ***************/")
@@ -160,11 +300,11 @@ end
 		Event: "",
 	}
 
-	apis := make(rule_engine.ExportMap)
-	apis["Temperature"] = temperature
-	apis["Water"] = water
-	apis["Smoke"] = smoke
-	apis["println"] = fmt.Println
+	properties := make(rulengine.ExportMap)
+	properties["Temperature"] = temperature
+	properties["Water"] = water
+	properties["Smoke"] = smoke
+	properties["println"] = fmt.Println
 
 	nodeName := "Station"
 
@@ -172,10 +312,10 @@ end
 	err := eng.Start()
 	assert.Nil(t, err)
 
-	err = eng.AddNode(nodeName, grl, apis)
+	err = eng.AddNode(nodeName, dsl, properties)
 	assert.Nil(t, err)
 
-	err = eng.Execute(nodeName, true)
+	err = eng.Execute(nodeName, rulengine.ConcurrentModel)
 	assert.Nil(t, err)
 
 	fmt.Printf("temperature Event=%s\n", temperature.Event)
@@ -183,7 +323,7 @@ end
 	fmt.Printf("smoke Event=%s\n", smoke.Event)
 	for i := 0; i < 10; i++ {
 		smoke.Value = float64(i % 3)
-		err = eng.Execute(nodeName, true)
+		err = eng.Execute(nodeName, rulengine.ConcurrentModel)
 		assert.Nil(t, err)
 		fmt.Printf("smoke Event=%s\n", smoke.Event)
 	}
@@ -219,15 +359,16 @@ begin
    }
 end
 `
+
 	student := &model.Student{
-		Name:  "菲乐",
+		Name:  "Phinx",
 		Score: 100,
 	}
 
-	apis := make(rule_engine.ExportMap)
-	apis["FormatInt"] = strconv.FormatInt
-	apis["println"] = fmt.Println
-	apis["Student"] = student
+	properties := make(rulengine.ExportMap)
+	properties["FormatInt"] = strconv.FormatInt
+	properties["println"] = fmt.Println
+	properties["Student"] = student
 
 	nodeName := "Student"
 
@@ -235,13 +376,13 @@ end
 	err := eng.Start()
 	assert.Nil(t, err)
 
-	err = eng.AddNode(nodeName, ruleInit, apis)
+	err = eng.AddNode(nodeName, ruleInit, properties)
 	assert.Nil(t, err)
 
 	go func() {
 		for {
 			student.Score = rand.Int63n(50) + 50
-			err2 := eng.Execute(nodeName, false)
+			err2 := eng.Execute(nodeName, rulengine.SortModel)
 			assert.Nil(t, err2)
 			time.Sleep(1 * time.Second)
 		}

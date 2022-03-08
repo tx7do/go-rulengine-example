@@ -1,5 +1,15 @@
 package rulengine
 
+type ExecuteModel int
+
+const (
+	SortModel ExecuteModel = iota
+	ConcurrentModel
+	MixModel
+	InverseMixModel
+	BucketModel
+)
+
 type ExportMap map[string]interface{}
 
 type RuleEngine interface {
@@ -11,13 +21,13 @@ type RuleEngine interface {
 
 	// Execute 执行规则
 	// @param [in] concurrent 是否并发执行
-	Execute(nodeName string, concurrent bool) error
+	Execute(nodeName string, executeModel ExecuteModel) error
 
 	// AddNode 添加一个规则节点
 	// @param [in] nodeName 节点名
-	// @param [in] apis 属性,方法的键值对
+	// @param [in] properties 属性,方法的键值对
 	// @param [in] rules 字符串规则
-	AddNode(nodeName, rules string, apis ExportMap) error
+	AddNode(nodeName, rules string, properties ExportMap) error
 
 	// RemoveNode 移除一个规则节点
 	RemoveNode(nodeName string) error

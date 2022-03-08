@@ -69,16 +69,25 @@ func (r *RuleEngine) NodeCount() int {
 }
 
 // Execute 执行规则
-func (r *RuleEngine) Execute(nodeName string, concurrent bool) error {
+func (r *RuleEngine) Execute(nodeName string, executeModel rulengine.ExecuteModel) error {
 	node, ok := r.nodes[nodeName]
 	if !ok {
 		return errors.New("rule node does not exist")
 	}
 
-	if concurrent {
-		return r.eng.ExecuteConcurrent(node)
-	} else {
+	switch executeModel {
+	case rulengine.SortModel:
 		return r.eng.Execute(node, true)
+	case rulengine.ConcurrentModel:
+		return r.eng.ExecuteConcurrent(node)
+	case rulengine.MixModel:
+		return r.eng.ExecuteMixModel(node)
+	case rulengine.InverseMixModel:
+		return r.eng.ExecuteInverseMixModel(node)
+	case rulengine.BucketModel:
+		return errors.New("not support execute model")
+	default:
+		return errors.New("not support execute model")
 	}
 }
 
